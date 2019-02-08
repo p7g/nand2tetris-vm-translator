@@ -1,0 +1,5 @@
+push constant 1
+pop local 0
+
+abc def 123
+return
