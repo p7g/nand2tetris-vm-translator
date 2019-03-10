@@ -342,6 +342,12 @@ macro_rules! call {
   }}
 }
 
+macro_rules! return_ {
+  ( $a:expr ) => {{
+    unimplemented!();
+  }}
+}
+
 fn initial_asm() -> &'static [u8] {
   b"\
   // initialize stack pointer to 256
