@@ -1,4 +1,4 @@
-use super::token::Token;
+use super::token::{Token, TokenType};
 use super::command::{Command};
 
 pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Vec<Command<'a>> {
@@ -6,33 +6,29 @@ pub fn parse<'a>(tokens: &'a Vec<Token<'a>>) -> Vec<Command<'a>> {
 
   let mut command: Option<Command> = None;
   for token in tokens.iter() {
-    match token {
-      Token::Newline => {
+    match token.type_ {
+      TokenType::Newline => {
         if let Some(c) = command {
           commands.push(c);
           command = None;
         }
       },
-      ident @ Token::Identifier {..} => {
+      TokenType::Identifier => {
         if let Some(mut c) = command {
-          c.push_arg(ident);
+          c.push_arg(token);
           command = Some(c);
         }
         else {
-          if let Token::Identifier {name, line, column} = ident {
-            command = Some(Command::new(name, *line, *column));
-          }
+          command = Some(Command::new(token));
         }
       },
-      int @ Token::Integer {..} => {
+      TokenType::Integer => {
         if let Some(mut c) = command {
-          c.push_arg(int);
+          c.push_arg(token);
           command = Some(c);
         }
         else {
-          if let Token::Integer {line, column, ..} = int {
-            panic!("Unexpected integer at line {}, column {}", line, column);
-          }
+          panic!("Unexpected integer at line {}, column {}", token.line, token.column);
         }
       },
     }
