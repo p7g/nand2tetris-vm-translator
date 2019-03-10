@@ -32,11 +32,8 @@ macro_rules! new_label {
 }
 
 macro_rules! label {
-  ( $x:expr ) => {{
-    let count = ($x).next_label_count();
-    let label = new_label!($x);
-    write!(($x).buffer, "({})\n", label).unwrap();
-    label
+  ( $x:expr, $label:expr ) => {{
+    write!(($x).buffer, "({})\n", $label).unwrap();
   }};
 }
 
