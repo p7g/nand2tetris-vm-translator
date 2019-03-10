@@ -60,7 +60,18 @@ pub fn lex<'a>(source: &'a String) -> Vec<Token<'a>> {
       },
       State::InComment => {
         match next {
-          '\n' => State::None,
+          '\n' => {
+            line += 1;
+            column = 0;
+            tokens.push(Token::new(
+              TokenType::Newline,
+              &"\n",
+              current_line,
+              current_column,
+            ));
+            do_column = false;
+            State::None
+          },
           _ => State::InComment,
         }
       },
