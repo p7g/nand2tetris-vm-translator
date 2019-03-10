@@ -85,6 +85,25 @@ impl Translator {
           };
         },
 
+        "label" => {
+          if command.num_args() != 1 {
+            return Err(format!(
+              "Expected 1 arguments for label at line {}, column {}",
+              command.name.line, command.name.column,
+            ));
+          }
+          let first_arg = command.arg(0);
+
+          if let TokenType::Identifier = first_arg.type_ {
+            label!(self.assembly, first_arg.lexeme);
+          } else {
+            return Err(format!(
+              "Expected argument to label to be identifier at line {}, column {}",
+              command.name.line, command.name.column,
+            ));
+          }
+        },
+
         "goto" | "if" | "function" | "return" | "call" => unimplemented!(),
 
         _ => {
