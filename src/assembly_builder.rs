@@ -47,6 +47,16 @@ macro_rules! goto {
   }};
 }
 
+macro_rules! if_goto {
+  ( $x:expr, $label:expr ) => {{
+    pop_D!($x);
+    write!(($x).buffer, "
+  @{label}
+  D;JNE
+", label = $label).unwrap();
+  }}
+}
+
 macro_rules! push {
   ( $a:expr, $segment:expr, $index:expr ) => {{
     write!(($a).buffer, "

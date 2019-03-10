@@ -85,10 +85,10 @@ impl Translator {
           };
         },
 
-        "label" | "goto" => {
+        "label" | "goto" | "if-goto" => {
           if command.num_args() != 1 {
             return Err(format!(
-              "Expected 1 arguments for {} at line {}, column {}",
+              "Expected 1 argument for {} at line {}, column {}",
               command.name.lexeme, command.name.line, command.name.column,
             ));
           }
@@ -98,6 +98,7 @@ impl Translator {
             match command.name.lexeme {
               "label" => label!(self.assembly, first_arg.lexeme),
               "goto" => goto!(self.assembly, first_arg.lexeme),
+              "if-goto" => if_goto!(self.assembly, first_arg.lexeme),
               _ => unreachable!(),
             };
           } else {
@@ -107,8 +108,8 @@ impl Translator {
             ));
           }
         },
-        
-        "if-goto" | "function" | "return" | "call" => unimplemented!(),
+
+        "function" | "return" | "call" => unimplemented!(),
 
         _ => {
           return Err(format!(
