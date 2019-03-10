@@ -85,26 +85,30 @@ impl Translator {
           };
         },
 
-        "label" => {
+        "label" | "goto" => {
           if command.num_args() != 1 {
             return Err(format!(
-              "Expected 1 arguments for label at line {}, column {}",
-              command.name.line, command.name.column,
+              "Expected 1 arguments for {} at line {}, column {}",
+              command.name.lexeme, command.name.line, command.name.column,
             ));
           }
           let first_arg = command.arg(0);
 
           if let TokenType::Identifier = first_arg.type_ {
-            label!(self.assembly, first_arg.lexeme);
+            match command.name.lexeme {
+              "label" => label!(self.assembly, first_arg.lexeme),
+              "goto" => goto!(self.assembly, first_arg.lexeme),
+              _ => unreachable!(),
+            };
           } else {
             return Err(format!(
-              "Expected argument to label to be identifier at line {}, column {}",
-              command.name.line, command.name.column,
+              "Expected argument to {} to be identifier at line {}, column {}",
+              command.name.lexeme, command.name.line, command.name.column,
             ));
           }
         },
-
-        "goto" | "if" | "function" | "return" | "call" => unimplemented!(),
+        
+        "if-goto" | "function" | "return" | "call" => unimplemented!(),
 
         _ => {
           return Err(format!(

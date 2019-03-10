@@ -37,6 +37,16 @@ macro_rules! label {
   }};
 }
 
+macro_rules! goto {
+  ( $x:expr, $label:expr ) => {{
+    write!(($x).buffer, "
+  // GOTO {label}
+  @{label}
+  0;JMP
+", label = $label).unwrap();
+  }};
+}
+
 macro_rules! push {
   ( $a:expr, $segment:expr, $index:expr ) => {{
     write!(($a).buffer, "
