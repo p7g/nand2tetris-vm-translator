@@ -24,7 +24,7 @@ impl Translator {
           if command.num_args() != 2 {
             return Err(format!(
               "Expected 2 arguments for {} at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column
+              command.name.lexeme, command.name.line, command.name.column,
             ));
           }
           let first_arg = command.arg(0);
@@ -33,7 +33,7 @@ impl Translator {
             if !Segment::is_valid_name(first_arg.lexeme) {
               return Err(format!(
                 "Unknown segment '{}' at line {}, column {}",
-                first_arg.lexeme, first_arg.line, first_arg.column
+                first_arg.lexeme, first_arg.line, first_arg.column,
               ));
             }
             if let Value::Integer(index) = second_arg.value {
