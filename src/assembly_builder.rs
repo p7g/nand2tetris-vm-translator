@@ -32,28 +32,36 @@ macro_rules! new_label {
 }
 
 macro_rules! label {
-  ( $x:expr, $label:expr ) => {{
-    write!(($x).buffer, "({})\n", $label).unwrap();
+  ( $x:expr, $function_name:expr, $label:expr ) => {{
+    write!(($x).buffer, "({}${})\n", $function_name, $label).unwrap();
   }};
 }
 
-macro_rules! goto {
-  ( $x:expr, $label:expr ) => {{
-    write!(($x).buffer, "
-  // GOTO {label}
+macro_rules! vm_goto {
+  ( $a:expr, $label:expr ) => {{
+    write!(($a).buffer, "
+  // GOTO FUNCTION {label}
   @{label}
   0;JMP
 ", label = $label).unwrap();
+  }}
+}
+
+macro_rules! goto {
+  ( $a:expr, $function_name:expr, $label:expr ) => {{
+    vm_goto!($a, format!("{}${}", $function_name, $label));
   }};
 }
 
 macro_rules! if_goto {
-  ( $x:expr, $label:expr ) => {{
+  ( $x:expr, $function_name:expr, $label:expr ) => {{
     pop_D!($x);
     write!(($x).buffer, "
-  @{label}
+  // IF-GOTO {function_name}${label}
+  @{function_name}${label}
   D;JNE
-", label = $label).unwrap();
+", label = $label
+ , function_name = $function_name).unwrap();
   }}
 }
 
@@ -63,14 +71,23 @@ macro_rules! push {
   // PUSHING FROM {segment} {index}
   {address}
   D=M
+", address = ($segment).resolve_address($index)
+ , segment = $segment
+ , index = $index).unwrap();
+    push_D!($a);
+  }}
+}
+
+macro_rules! push_D {
+  ( $a:expr ) => {{
+    write!(($a).buffer, "
+  // PUSHING FROM D REGISTER
   @SP
   A=M
   M=D
   @SP
   M=M+1
-", address = ($segment).resolve_address($index)
- , segment = $segment
- , index = $index).unwrap();
+").unwrap();
   }}
 }
 
@@ -86,6 +103,16 @@ macro_rules! push_constant {
   @SP
   M=M+1
 ", value = $value).unwrap();
+  }}
+}
+
+macro_rules! push_address {
+  ( $a:expr, $segment:expr ) => {{
+    write!(($a).buffer, "
+  @{segment}
+  D=A
+", segment = $segment).unwrap();
+    push_D!($a);
   }}
 }
 
@@ -266,6 +293,55 @@ macro_rules! not {
   }}
 }
 
+macro_rules! vm_label {
+  ( $a:expr, $function_name:expr ) => {{
+    write!(($a).buffer, "({})\n", $function_name).unwrap();
+  }}
+}
+
+macro_rules! function {
+  ( $a:expr, $name:expr, $num_vars:expr ) => {{
+    vm_label!($a, $name);
+    for _ in 0..($num_vars) {
+      push_constant!($a, 0);
+    }
+  }}
+}
+
+macro_rules! call {
+  ( $a:expr, $function_name:expr, $num_args:expr ) => {{
+    let label = new_label!($a);
+    write!(($a).buffer, "
+  @{}
+  D=A
+", label).unwrap();
+    push_D!($a);
+    // store addresses of caller's segments
+    push_address!($a, Segment::Local);
+    push_address!($a, Segment::Argument);
+    push_address!($a, Segment::This);
+    push_address!($a, Segment::That);
+    // reposition arg segment
+    push_address!($a, Segment::Argument);
+    push_constant!($a, ($num_args) + 5);
+    sub!($a);
+    pop_D!($a);
+    write!(($a).buffer, "
+  @{}
+  M=D
+", Segment::Argument).unwrap();
+    // reposition local pointer
+    write!(($a).buffer, "
+  @SP
+  D=A
+  @{local}
+  M=D
+", local = Segment::Local).unwrap();
+    vm_goto!($a, $function_name);
+    vm_label!($a, label);
+  }}
+}
+
 fn initial_asm() -> &'static [u8] {
   b"\
   // initialize stack pointer to 256
@@ -274,6 +350,5 @@ fn initial_asm() -> &'static [u8] {
   @SP
   M=D
 
-  // PROGRAM START
-"
+  // PROGRAM START"
 }

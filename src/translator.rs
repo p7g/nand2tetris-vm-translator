@@ -6,14 +6,16 @@ use super::token::{TokenType, Value};
 use super::code_gen::segment::Segment;
 
 #[derive(Debug)]
-pub struct Translator {
+pub struct Translator<'a> {
   assembly: AssemblyBuilder,
+  current_function_name: Option<&'a str>,
 }
 
-impl Translator {
-  pub fn new() -> Translator {
+impl<'a> Translator<'a> {
+  pub fn new() -> Translator<'a> {
     Translator {
       assembly: AssemblyBuilder::new(),
+      current_function_name: None,
     }
   }
 
@@ -95,10 +97,17 @@ impl Translator {
           let first_arg = command.arg(0);
 
           if let TokenType::Identifier = first_arg.type_ {
+            let fn_name = match self.current_function_name {
+              None => return Err(format!(
+                "Cannot use {} in non-function context at line {}, column {}",
+                command.name.lexeme, command.name.line, command.name.column,
+              )),
+              Some(name) => name,
+            };
             match command.name.lexeme {
-              "label" => label!(self.assembly, first_arg.lexeme),
-              "goto" => goto!(self.assembly, first_arg.lexeme),
-              "if-goto" => if_goto!(self.assembly, first_arg.lexeme),
+              "label" => label!(self.assembly, fn_name, first_arg.lexeme),
+              "goto" => goto!(self.assembly, fn_name, first_arg.lexeme),
+              "if-goto" => if_goto!(self.assembly, fn_name, first_arg.lexeme),
               _ => unreachable!(),
             };
           } else {
@@ -109,7 +118,44 @@ impl Translator {
           }
         },
 
-        "function" | "return" | "call" => unimplemented!(),
+        "function" | "call" => {
+          if command.num_args() != 2 {
+            return Err(format!(
+              "Expected 2 arguments for {} at line {}, column {}",
+              command.name.lexeme, command.name.line, command.name.column,
+            ));
+          }
+          let first_arg = command.arg(0);
+          let second_arg = command.arg(1);
+
+          let function_name: &str;
+          if let TokenType::Identifier = first_arg.type_ {
+            function_name = first_arg.lexeme;
+          } else {
+            return Err(format!(
+              "Expected first argument of {} to be identifier at line {}, column {}",
+              command.name.lexeme, command.name.line, command.name.column,
+            ));
+          }
+
+          let num_vars: i16;
+          if let Value::Integer(index) = second_arg.value {
+            num_vars = index;
+          } else {
+            return Err(format!(
+              "Expected second argument of {} to be integer at line {}, column {}",
+              command.name.lexeme, command.name.line, command.name.column,
+            ));
+          }
+
+          match command.name.lexeme {
+            "function" => function!(self.assembly, function_name, num_vars),
+            "call" => call!(self.assembly, function_name, num_vars),
+            _ => unreachable!(),
+          };
+        },
+
+        "return" => unimplemented!(),
 
         _ => {
           return Err(format!(
