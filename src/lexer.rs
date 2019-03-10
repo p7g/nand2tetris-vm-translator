@@ -49,7 +49,7 @@ pub fn lex<'a>(source: &'a String) -> Vec<Token<'a>> {
             State::None
           }
           '0'...'9' => State::InNumber,
-          'a'...'z' | 'A'...'Z' | '_' => State::InIdentifier,
+          'a'...'z' | 'A'...'Z' | '_' | '-' | ':' | '.' => State::InIdentifier,
           '\0' => break,
           '/' if current == '/' => {
             State::InComment
@@ -67,7 +67,8 @@ pub fn lex<'a>(source: &'a String) -> Vec<Token<'a>> {
       State::InIdentifier => {
         lexeme.push(current);
         match next {
-          'a'...'z' | 'A'...'Z' | '_' | '0'...'9' => State::InIdentifier,
+          'a'...'z' | 'A'...'Z' | '0'...'9'
+          | '_' | '-' | ':' | '.' => State::InIdentifier,
           _ => {
             tokens.push(Token::new(
               TokenType::Identifier,
