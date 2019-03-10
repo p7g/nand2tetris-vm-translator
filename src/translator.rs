@@ -8,18 +8,18 @@ use super::code_gen::segment::Segment;
 #[derive(Debug)]
 pub struct Translator<'a> {
   assembly: AssemblyBuilder,
-  current_function_name: Option<&'a str>,
+  function_stack: Vec<&'a str>,
 }
 
 impl<'a> Translator<'a> {
   pub fn new() -> Translator<'a> {
     Translator {
       assembly: AssemblyBuilder::new(),
-      current_function_name: None,
+      function_stack: vec![],
     }
   }
 
-  pub fn translate_file(&mut self, filename: &str, commands: Vec<Command>) -> std::result::Result<(), String> {
+  pub fn translate_file(&mut self, filename: &str, commands: Vec<Command<'a>>) -> std::result::Result<(), String> {
     for command in commands {
       match command.name.lexeme { // FIXME: should have CommandType enum and match on that (or have command be enum)
         "push" | "pop" => {
@@ -97,7 +97,7 @@ impl<'a> Translator<'a> {
           let first_arg = command.arg(0);
 
           if let TokenType::Identifier = first_arg.type_ {
-            let fn_name = match self.current_function_name {
+            let fn_name = match self.function_stack.last() {
               None => return Err(format!(
                 "Cannot use {} in non-function context at line {}, column {}",
                 command.name.lexeme, command.name.line, command.name.column,
@@ -128,7 +128,7 @@ impl<'a> Translator<'a> {
           let first_arg = command.arg(0);
           let second_arg = command.arg(1);
 
-          let function_name: &str;
+          let function_name: &'a str;
           if let TokenType::Identifier = first_arg.type_ {
             function_name = first_arg.lexeme;
           } else {
@@ -149,13 +149,18 @@ impl<'a> Translator<'a> {
           }
 
           match command.name.lexeme {
-            "function" => function!(self.assembly, function_name, num_vars),
+            "function" => {
+              self.function_stack.push(function_name);
+              function!(self.assembly, function_name, num_vars);
+            },
             "call" => call!(self.assembly, function_name, num_vars),
             _ => unreachable!(),
           };
         },
 
-        "return" => unimplemented!(),
+        "return" => {
+
+        },
 
         _ => {
           return Err(format!(
