@@ -27,7 +27,7 @@ impl AssemblyBuilder {
 macro_rules! new_label {
   ( $x:expr ) => {{
     let count = ($x).next_label_count();
-    format!("GENERATED{}", count)
+    format!("__VM_GENERATED_{}", count)
   }};
 }
 
