@@ -6,20 +6,20 @@ use super::token::{TokenType, Value};
 use super::code_gen::segment::Segment;
 
 #[derive(Debug)]
-pub struct Translator<'a> {
+pub struct Translator {
   assembly: AssemblyBuilder,
-  function_stack: Vec<&'a str>,
+  function_stack: Vec<String>,
 }
 
-impl<'a> Translator<'a> {
-  pub fn new() -> Translator<'a> {
+impl Translator {
+  pub fn new() -> Translator {
     Translator {
       assembly: AssemblyBuilder::new(),
       function_stack: vec![],
     }
   }
 
-  pub fn translate_file(&mut self, filename: &str, commands: Vec<Command<'a>>) -> std::result::Result<(), String> {
+  pub fn translate_file(&mut self, filename: &str, commands: Vec<Command>) -> std::result::Result<(), String> {
     for command in commands {
       match command.name.lexeme { // FIXME: should have CommandType enum and match on that (or have command be enum)
         "push" | "pop" => {
@@ -128,7 +128,7 @@ impl<'a> Translator<'a> {
           let first_arg = command.arg(0);
           let second_arg = command.arg(1);
 
-          let function_name: &'a str;
+          let function_name: &str;
           if let TokenType::Identifier = first_arg.type_ {
             function_name = first_arg.lexeme;
           } else {
@@ -150,7 +150,7 @@ impl<'a> Translator<'a> {
 
           match command.name.lexeme {
             "function" => {
-              self.function_stack.push(function_name);
+              self.function_stack.push(String::from(function_name));
               function!(self.assembly, function_name, num_vars);
             },
             "call" => call!(self.assembly, function_name, num_vars),
@@ -159,7 +159,8 @@ impl<'a> Translator<'a> {
         },
 
         "return" => {
-
+          self.function_stack.pop();
+          return_!(self.assembly);
         },
 
         _ => {
