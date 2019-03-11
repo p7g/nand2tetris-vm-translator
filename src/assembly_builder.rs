@@ -110,7 +110,7 @@ macro_rules! push_address {
   ( $a:expr, $segment:expr ) => {{
     write!(($a).buffer, "
   @{segment}
-  D=A
+  D=M
 ", segment = $segment).unwrap();
     push_D!($a);
   }}
@@ -295,7 +295,7 @@ macro_rules! not {
 
 macro_rules! vm_label {
   ( $a:expr, $function_name:expr ) => {{
-    write!(($a).buffer, "({})\n", $function_name).unwrap();
+    write!(($a).buffer, "\n({})\n", $function_name).unwrap();
   }}
 }
 
@@ -322,18 +322,22 @@ macro_rules! call {
     push_address!($a, Segment::This);
     push_address!($a, Segment::That);
     // reposition arg segment
-    push_address!($a, Segment::Argument);
+    write!(($a).buffer, "
+  @SP
+  D=M
+").unwrap();
+    push_D!($a);
     push_constant!($a, ($num_args) + 5);
     sub!($a);
     pop_D!($a);
     write!(($a).buffer, "
-  @{}
+  @{argument}
   M=D
-", Segment::Argument).unwrap();
+", argument = Segment::Argument).unwrap();
     // reposition local pointer
     write!(($a).buffer, "
   @SP
-  D=A
+  D=M
   @{local}
   M=D
 ", local = Segment::Local).unwrap();
