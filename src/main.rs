@@ -28,17 +28,18 @@ fn main() -> io::Result<()> {
 
     // FIXME: properly handle things, not unwrap
     let path = Path::new(pathstr);
-    let dir = path.parent().unwrap();
+    let dir: &Path;
     let filename = match path.file_stem() {
         Some(name) => name,
         None => unimplemented!(),
     };
-    let output_file = Path::new(dir).join(Path::new(filename).with_extension("asm"));
 
     let meta = std::fs::metadata(pathstr)?;
     let paths: Vec<PathBuf> = if meta.is_file() {
+        dir = path.parent().unwrap();
         std::iter::once(PathBuf::from(pathstr)).collect()
     } else {
+        dir = path;
         path.read_dir()?.filter(|child| {
             let path = match child {
                 Ok(c) => c.path(),
@@ -51,6 +52,9 @@ fn main() -> io::Result<()> {
                 .is_some()
         }).filter_map(|dir| dir.ok().map(|d| d.path())).collect()
     };
+
+    // output directory is *in* the argument location if that location is a dir
+    let output_file = Path::new(dir).join(Path::new(filename).with_extension("asm"));
 
     let mut translator = Translator::new();
     for path in &paths {
