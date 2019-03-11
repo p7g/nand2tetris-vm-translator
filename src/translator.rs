@@ -8,42 +8,50 @@ use super::code_gen::segment::Segment;
 #[derive(Debug)]
 pub struct Translator {
   assembly: AssemblyBuilder,
-  function_stack: Vec<String>,
+  current_function_name: Option<String>,
 }
 
 impl Translator {
   pub fn new() -> Translator {
     Translator {
       assembly: AssemblyBuilder::new(),
-      function_stack: vec![],
+      current_function_name: None,
     }
   }
 
   pub fn translate_file(&mut self, filename: &str, commands: Vec<Command>) -> std::result::Result<(), String> {
     for command in commands {
+
+      macro_rules! err {
+        ( $message:expr ) => {
+          Err(new_error(String::from($message), filename, &command))
+        };
+        ( $fmtstr:expr, $($fmtargs:expr),* ) => {
+          Err(new_error(
+            format!($fmtstr, $($fmtargs),*),
+            filename,
+            &command,
+          ))
+        };
+      }
+
       match command.name.lexeme { // FIXME: should have CommandType enum and match on that (or have command be enum)
         "push" | "pop" => {
           if command.num_args() != 2 {
-            return Err(format!(
-              "Expected 2 arguments for {} at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column,
-            ));
+            return err!("Expected 2 arguments for {}", command.name.lexeme);
           }
           let first_arg = command.arg(0);
           let second_arg = command.arg(1);
           if let TokenType::Identifier = first_arg.type_ {
             if !Segment::is_valid_name(first_arg.lexeme) {
-              return Err(format!(
-                "Unknown segment '{}' at line {}, column {}",
-                first_arg.lexeme, first_arg.line, first_arg.column,
-              ));
+              return err!("Unknown segment '{}'", first_arg.lexeme);
             }
             if let Value::Integer(index) = second_arg.value {
               let segment = Segment::from_name(first_arg.lexeme, filename)?;
 
               if command.name.lexeme == "pop" {
                 if !segment.is_writable() {
-                  return Err(format!("Can't pop into read-only segment {}", segment));
+                  return err!("Can't pop into read-only segment {}", segment);
                 }
                 pop!(self.assembly, segment, index);
               }
@@ -55,22 +63,16 @@ impl Translator {
                 }
               }
             } else {
-              return Err(format!(
-                "Expected second argument to be integer at line {}, column {}",
-                command.name.line, command.name.column
-              ));
+              return err!("Expected second argument to be integer");
             }
           } else {
-            return Err(format!(
-              "Expected first argument to be identifier at line {}, column {}",
-              command.name.line, command.name.column
-            ));
+            return err!("Expected first argument to be identifier");
           }
         }
 
         "add" | "sub" | "neg" | "eq" | "gt" | "lt" | "and" | "or" | "not" => {
           if command.num_args() > 0 {
-            return Err(format!("Expected no arguments for command {}", command.name.lexeme));
+            return err!("Expected no arguments for command {}", command.name.lexeme);
           }
 
           match command.name.lexeme {
@@ -89,19 +91,14 @@ impl Translator {
 
         "label" | "goto" | "if-goto" => {
           if command.num_args() != 1 {
-            return Err(format!(
-              "Expected 1 argument for {} at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column,
-            ));
+            return err!("Expected 1 argument for {}",
+              command.name.lexeme);
           }
           let first_arg = command.arg(0);
 
           if let TokenType::Identifier = first_arg.type_ {
-            let fn_name = match self.function_stack.last() {
-              None => return Err(format!(
-                "Cannot use {} in non-function context at line {}, column {}",
-                command.name.lexeme, command.name.line, command.name.column,
-              )),
+            let fn_name = match &self.current_function_name {
+              None => return err!("Cannot use {} in non-function context", command.name.lexeme),
               Some(name) => name,
             };
             match command.name.lexeme {
@@ -111,19 +108,13 @@ impl Translator {
               _ => unreachable!(),
             };
           } else {
-            return Err(format!(
-              "Expected argument to {} to be identifier at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column,
-            ));
+            return err!("Expected argument to {} to be identifier", command.name.lexeme);
           }
         },
 
         "function" | "call" => {
           if command.num_args() != 2 {
-            return Err(format!(
-              "Expected 2 arguments for {} at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column,
-            ));
+            return err!("Expected 2 arguments for {}", command.name.lexeme);
           }
           let first_arg = command.arg(0);
           let second_arg = command.arg(1);
@@ -132,25 +123,19 @@ impl Translator {
           if let TokenType::Identifier = first_arg.type_ {
             function_name = first_arg.lexeme;
           } else {
-            return Err(format!(
-              "Expected first argument of {} to be identifier at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column,
-            ));
+            return err!("Expected first argument of {} to be identifier", command.name.lexeme);
           }
 
           let num_vars: i16;
           if let Value::Integer(index) = second_arg.value {
             num_vars = index;
           } else {
-            return Err(format!(
-              "Expected second argument of {} to be integer at line {}, column {}",
-              command.name.lexeme, command.name.line, command.name.column,
-            ));
+            return err!("Expected second argument of {} to be integer", command.name.lexeme);
           }
 
           match command.name.lexeme {
             "function" => {
-              self.function_stack.push(String::from(function_name));
+              self.current_function_name = Some(String::from(function_name));
               function!(self.assembly, function_name, num_vars);
             },
             "call" => call!(self.assembly, function_name, num_vars),
@@ -159,15 +144,11 @@ impl Translator {
         },
 
         "return" => {
-          self.function_stack.pop();
           return_!(self.assembly);
         },
 
         _ => {
-          return Err(format!(
-            "Unknown command '{}' at line {}, column {}",
-            command.name.lexeme, command.name.line, command.name.column
-          ))
+          return err!("Unknown command '{}'", command.name.lexeme);
         },
       }
     };
@@ -178,4 +159,11 @@ impl Translator {
   pub fn write(&self, stream: &mut Write) -> Result<()> {
     self.assembly.write(stream)
   }
+}
+
+fn new_error(message: String, filename: &str, command: &Command) -> String {
+  format!(
+    "{} at {}.vm line {}, column {}",
+    message, filename, command.name.line, command.name.column,
+  )
 }
