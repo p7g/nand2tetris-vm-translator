@@ -74,6 +74,11 @@ impl Segment {
   @{}
   A=M
 ", self)
+        } else if index == 1 {
+          format!("
+  @{}
+  A=M+1
+", self)
         } else {
           format!("\
   @{}
@@ -92,6 +97,11 @@ impl Segment {
         };
         if index == 0 {
           format!("@{}\n", base_address)
+        } else if index == 1 {
+          format!("
+  @{}
+  A=A+1
+", base_address)
         } else {
           format!("\
   @{}
