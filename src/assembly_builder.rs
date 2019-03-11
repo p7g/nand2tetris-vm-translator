@@ -348,7 +348,58 @@ macro_rules! call {
 
 macro_rules! return_ {
   ( $a:expr ) => {{
-    unimplemented!();
+    write!(($a).buffer, "
+  @LCL // store position of frame
+  D=M
+  @FRAME
+  M=D
+  @5 // put return address in temp var
+  A=D-A
+  D=M
+  @RET
+  M=D
+  @SP // pop into *(ARG)
+  AM=M-1
+  D=M
+  @ARG
+  A=M
+  M=D
+  @ARG // restore SP of caller
+  D=M
+  @SP
+  M=D+1
+  @FRAME // restore THAT
+  D=M
+  @1
+  A=D-A
+  D=M
+  @THAT
+  M=D
+  @FRAME // restore THIS
+  D=M
+  @2
+  A=D-A
+  D=M
+  @THIS
+  M=D
+  @FRAME // restore ARG
+  D=M
+  @3
+  A=D-A
+  D=M
+  @ARG
+  M=D
+  @FRAME // restore LCL
+  D=M
+  @4
+  A=D-A
+  D=M
+  @LCL
+  M=D
+  @RET
+  A=M
+  0;JMP
+").unwrap();
   }}
 }
 
@@ -358,7 +409,10 @@ fn initial_asm() -> &'static [u8] {
   @256
   D=A
   @SP
-  M=D
+  //M=D
 
-  // PROGRAM START"
+  // PROGRAM START
+  @Sys.init
+  0;JMP
+"
 }
