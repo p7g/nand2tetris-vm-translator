@@ -1,28 +1,5 @@
 use std::io::{Write, Result};
-
-#[derive(Debug)]
-pub struct AssemblyBuilder {
-  pub buffer: Vec<u8>,
-  label_count: i32,
-}
-
-impl AssemblyBuilder {
-  pub fn new() -> AssemblyBuilder {
-    AssemblyBuilder {
-      buffer: initial_asm().to_vec(),
-      label_count: 0,
-    }
-  }
-
-  pub fn write(&self, stream: &mut Write) -> Result<()> {
-    stream.write_all(&self.buffer[..])
-  }
-
-  pub fn next_label_count(&mut self) -> i32 {
-    self.label_count += 1;
-    self.label_count
-  }
-}
+use super::code_gen::segment::Segment;
 
 macro_rules! new_label {
   ( $x:expr ) => {{
@@ -403,16 +380,38 @@ macro_rules! return_ {
   }}
 }
 
+#[derive(Debug)]
+pub struct AssemblyBuilder {
+  pub buffer: Vec<u8>,
+  label_count: i32,
+}
+
+impl AssemblyBuilder {
+  pub fn new() -> AssemblyBuilder {
+    let mut builder = AssemblyBuilder {
+      buffer: initial_asm().to_vec(),
+      label_count: 0,
+    };
+    call!(builder, "Sys.init", 0);
+    builder
+  }
+
+  pub fn write(&self, stream: &mut Write) -> Result<()> {
+    stream.write_all(&self.buffer[..])
+  }
+
+  pub fn next_label_count(&mut self) -> i32 {
+    self.label_count += 1;
+    self.label_count
+  }
+}
+
 fn initial_asm() -> &'static [u8] {
   b"\
   // initialize stack pointer to 256
   @256
   D=A
   @SP
-  //M=D
-
-  // PROGRAM START
-  @Sys.init
-  0;JMP
+  M=D
 "
 }
